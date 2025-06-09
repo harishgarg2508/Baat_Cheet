@@ -1,9 +1,8 @@
-import React, {  useState } from "react";
-import List from "@mui/material/List";
-import ListItemText from "@mui/material/ListItemText";
-import ListItemAvatar from "@mui/material/ListItemAvatar";
-import Avatar from "@mui/material/Avatar";
-import { InputBase, ListItemButton, Stack, Typography } from "@mui/material";
+import React, { useState } from "react";
+import {   Avatar,   InputBase,   List,   ListItemAvatar,   ListItemButton,   ListItemText,   Stack,   Typography, } from "@mui/material";
+import InfiniteScroll from "react-infinite-scroll-component";
+import { useAppDispatch } from "../redux/hooks";
+import { setSelectedUserId } from "../redux/chatSlice";
 
 interface UserData {
   id: string;
@@ -14,49 +13,96 @@ interface UserData {
 
 interface UserListProps {
   users: UserData[];
-  setSelectedUser: (user: UserData) => void;
 }
 
-const UserList: React.FC<UserListProps> = ({ users, setSelectedUser }) => {
+const UserList: React.FC<UserListProps> = ({ users }) => {
   const [searchTerm, setSearchTerm] = useState("");
+  const dispatch = useAppDispatch();
 
+  // For pagination (if needed in the future)
+  const [visibleUsers, setVisibleUsers] = useState(20);
 
   const filteredUsers = users.filter((user) => {
     const term = searchTerm.toLowerCase();
-    return user.name?.toLowerCase().includes(term) || user.email?.toLowerCase().includes(term);
+    return (
+      user.name?.toLowerCase().includes(term) ||
+      user.email?.toLowerCase().includes(term)
+    );
   });
+
+  const loadMoreUsers = () => {
+    setTimeout(() => {
+      setVisibleUsers((prev) => prev + 20);
+    }, 500);
+  };
 
   return (
     <Stack direction="column" gap={2}>
+      {/* Search Input */}
       <InputBase
         fullWidth
         placeholder="Search users..."
+        value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         sx={{
           position: "sticky",
           top: "5px",
           zIndex: 1,
-          bgcolor: "background.paper", 
+          bgcolor: "background.paper",
           borderRadius: "8px",
-          padding: "8px 12px", 
+          padding: "8px 12px",
           boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-          margin: 1, 
-          width: "calc(100% - 16px)",
+          margin: 1,
         }}
       />
-      <List sx={{ width: "100%", bgcolor: "background.paper", overflowY: "auto", flexGrow: 1, paddingTop: 0,overflow:'hidden'}}>
-        {filteredUsers.length > 0 ? (
-          filteredUsers.map((user) => (
-            
-             <ListItemButton key={user.id} alignItems="flex-start" onClick={() => setSelectedUser(user)}>
-              <ListItemAvatar>
-                <Avatar alt={user.name || user.email} src={user.photoURL || undefined} />
-              </ListItemAvatar>
-              <ListItemText primary={user.name || user.email?.split("@")[0]} secondary={user.email} />
-             </ListItemButton>
-          ))
-        ) : (<Typography sx={{textAlign: 'center', color: 'text.secondary', mt: 2}}>No users found.</Typography>)}
-      </List>
+
+      {/* Infinite Scroll List */}
+      <InfiniteScroll
+        dataLength={Math.min(filteredUsers.length, visibleUsers)}
+        next={loadMoreUsers}
+        hasMore={visibleUsers < filteredUsers.length}
+        loader={<Typography align="center">Loading...</Typography>}
+        height={550}
+        endMessage={
+          <Typography align="center" sx={{ mt: 2 }} color="text.secondary">
+            <b>Yay! You have seen it all</b>
+          </Typography>
+        }
+      >
+        <List
+          sx={{
+            width: "100%",
+            bgcolor: "background.paper",
+            paddingTop: 0,
+          }}
+        >
+          {filteredUsers.length > 0 ? (
+            filteredUsers.slice(0, visibleUsers).map((user) => (
+              <ListItemButton
+                key={user.id}
+                onClick={() => dispatch(setSelectedUserId(user.id))}
+              >
+                <ListItemAvatar>
+                  <Avatar
+                    alt={user.name || user.email}
+                    src={user.photoURL || undefined}
+                  />
+                </ListItemAvatar>
+                <ListItemText
+                  primary={user.name || user.email?.split("@")[0]}
+                  secondary={user.email}
+                />
+              </ListItemButton>
+            ))
+          ) : (
+            <Typography
+              sx={{ textAlign: "center", color: "text.secondary", mt: 2 }}
+            >
+              No users found.
+            </Typography>
+          )}
+        </List>
+      </InfiniteScroll>
     </Stack>
   );
 };

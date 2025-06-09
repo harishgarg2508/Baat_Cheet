@@ -1,10 +1,20 @@
-import { Avatar, Box, Button, InputBase, ListItem, ListItemAvatar, ListItemText, Paper, Stack, Typography, } from "@mui/material";
+import {
+  Avatar,
+  Box,
+  Button,
+  InputBase,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { useState, useRef, useEffect } from "react";
-import { auth, db } from "../firebase/firebase";
-import { listenForMessages, sendMessage } from "../firebase/firebase";
+import { db, sendMessage, listenForMessages } from "../firebase/firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
-
+import { useAppSelector } from "../redux/hooks"; // Ensure this is your custom hook
 
 interface UserData {
   id: string;
@@ -20,60 +30,75 @@ interface Message {
   timestamp: Date;
 }
 
-interface ChatPageProps {
-  selectedUser: UserData | null;
-}
-
 interface IsOnline {
   isOnline: boolean;
   isTyping: boolean;
 }
 
-const ChatPage: React.FC<ChatPageProps> = ({ selectedUser }) => {
-  const [messages, setMessages] = useState<Message[]>([]); //this is to store listned messages
-  const [messageText, setMessageText] = useState(""); //this is to store input message
+const ChatPage: React.FC = () => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [messageText, setMessageText] = useState("");
   const [chatId, setChatId] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null); //this is to store the id of user who signed in
-  const [isOnline, setIsOnline] = useState<IsOnline>();
-  const typingTimeout = useRef<NodeJS.Timeout | null>(null);  //this for typng status
-
+  const [isUserOnline, setIsUserOnline] = useState<IsOnline>();
+  const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const typingTimeout = useRef<NodeJS.Timeout | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
+  const selectedUserId = useAppSelector((state) => state.chat.selectedUserId);
+  const currentUser = useAppSelector((state) => state.user.currentUser);
+  const currentUserId = currentUser?.uid ?? null;
 
-  // Set current user and chat ID
+  // Fetch selected user's info from Firestore
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user && selectedUser) {
-        const uid = user.uid;
-        setCurrentUserId(uid);
-        const selectedUid = selectedUser.id;
-        setChatId(
-          uid < selectedUid ? `${uid}-${selectedUid}` : `${selectedUid}-${uid}`
-        );
+    if (!selectedUserId) {
+      setSelectedUser(null);
+      return;
+    }
+
+    const unsub = onSnapshot(doc(db, "users", selectedUserId), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setSelectedUser({ id: snap.id, ...data } as UserData);
+      } else {
+        setSelectedUser(null);
       }
     });
-    return unsubscribe;
-  }, [selectedUser]);
 
-  // Fetch online status
+    return () => unsub();
+  }, [selectedUserId]);
+
+  // Set chat ID
+  useEffect(() => {
+    if (!currentUserId || !selectedUserId) return;
+
+    const id =
+      currentUserId < selectedUserId
+        ? `${currentUserId}-${selectedUserId}`
+        : `${selectedUserId}-${currentUserId}`;
+    setChatId(id);
+  }, [currentUserId, selectedUserId]);
+
+  // Fetch online status of selected user
   useEffect(() => {
     if (!selectedUser?.id) return;
+
     const onlineRef = doc(db, "isOnline", selectedUser.id);
     const unsub = onSnapshot(onlineRef, (doc) => {
       const data = doc.data() as IsOnline;
       if (data) {
-        setIsOnline(data);
+        setIsUserOnline(data);
       } else {
-        setIsOnline(undefined);
+        setIsUserOnline(undefined);
       }
     });
+
     return () => unsub();
   }, [selectedUser?.id]);
 
-  // Listen for messages in real-time
+  // Listen for messages
   useEffect(() => {
-    if (!chatId) return setMessages([]);
+    if (!chatId) return;
 
     const unsubscribe = listenForMessages(chatId, (fetchedMessages: any[]) => {
       const processed = fetchedMessages
@@ -93,38 +118,30 @@ const ChatPage: React.FC<ChatPageProps> = ({ selectedUser }) => {
     return unsubscribe;
   }, [chatId]);
 
-
-
-
   // Scroll to bottom when messages change
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  //handle logout
-
-
+  // Handle logout
   const handleLogout = async () => {
     try {
       if (currentUserId) {
         const onlineStatusRef = doc(db, "isOnline", currentUserId);
-        await setDoc(onlineStatusRef, {
-          isOnline: false,
-          isTyping: false,
-        }, { merge: true });
+        await setDoc(
+          onlineStatusRef,
+          { isOnline: false, isTyping: false },
+          { merge: true }
+        );
       }
-      navigate('/login');
+      navigate("/login");
     } catch (error) {
       console.error("Error during logout:", error);
-
-      navigate('/login');
+      navigate("/login");
     }
   };
 
-
-  //handling send message here
-
-
+  // Handle sending messages
   const handleSendMessage = async () => {
     if (!messageText.trim() || !chatId || !currentUserId || !selectedUser)
       return;
@@ -132,19 +149,34 @@ const ChatPage: React.FC<ChatPageProps> = ({ selectedUser }) => {
     try {
       await sendMessage(messageText, chatId, currentUserId, selectedUser.id);
       setMessageText("");
-      if (selectedUser.id) return;
+
       const onlineRef = doc(db, "isOnline", selectedUser.id);
-      setDoc(onlineRef, {
+      await setDoc(onlineRef, {
         isOnline: true,
         isTyping: false,
-      });
+      }, { merge: true });
     } catch (error) {
       console.error("Error sending message:", error);
     }
   };
 
+  // Typing status update
+  const handleTyping = (value: string) => {
+    setMessageText(value);
 
-  //checking if no user is selected
+    if (!currentUserId) return;
+    const onlineRef = doc(db, "isOnline", currentUserId);
+
+    setDoc(onlineRef, { isOnline: true, isTyping: true }, { merge: true });
+
+    if (typingTimeout.current) clearTimeout(typingTimeout.current);
+
+    typingTimeout.current = setTimeout(() => {
+      setDoc(onlineRef, { isOnline: true, isTyping: false }, { merge: true });
+    }, 1500);
+  };
+
+  // Check if no user selected
   if (!selectedUser) {
     return (
       <Stack
@@ -157,35 +189,39 @@ const ChatPage: React.FC<ChatPageProps> = ({ selectedUser }) => {
 
   return (
     <Stack direction="column" height="100%">
-
-      {/* Chat top user image and name*/}
-      <Stack direction={"row"} gap={1} sx={{ borderBottom: 1, borderColor: "divider", p: 1, }}>
-        <ListItem disableGutters  >
+      {/* Header */}
+      <Stack
+        direction={"row"}
+        gap={1}
+        sx={{ borderBottom: 1, borderColor: "divider", p: 1 }}
+      >
+        <ListItem disableGutters>
           <ListItemAvatar>
             <Avatar src={selectedUser.photoURL || undefined}>
               {selectedUser.name?.charAt(0)}
             </Avatar>
-            <Button variant="contained" color="warning" onClick={handleLogout}>
-              Logout
-            </Button>
           </ListItemAvatar>
           <ListItemText
             primary={selectedUser.name || selectedUser.email}
-            secondary={isOnline?.isOnline ? (
-              <Typography variant="caption" color="green">
-                {isOnline?.isTyping ? "Typing..." : "Online"}
-              </Typography>
-            ) : (
-              <Typography variant="caption" color="gray">
-                Offline
-              </Typography>
-            )}
+            secondary={
+              isUserOnline?.isOnline ? (
+                <Typography variant="caption" color="green">
+                  {isUserOnline?.isTyping ? "Typing..." : "Online"}
+                </Typography>
+              ) : (
+                <Typography variant="caption" color="gray">
+                  Offline
+                </Typography>
+              )
+            }
           />
+          <Button variant="contained" color="warning" onClick={handleLogout}>
+            Logout
+          </Button>
         </ListItem>
       </Stack>
 
-      {/* Messages of the chat start here*/}
-
+      {/* Messages */}
       <Stack spacing={1.5} sx={{ flexGrow: 1, overflowY: "auto", px: 2, py: 1 }}>
         {messages.map((msg) => {
           const isSender = msg.senderId === currentUserId;
@@ -231,34 +267,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ selectedUser }) => {
           fullWidth
           placeholder="Type a message..."
           value={messageText}
-          onChange={(e) => {
-            setMessageText(e.target.value);
-            if (!currentUserId) return;
-            const onlineRef = doc(db, "isOnline", currentUserId);
-            setDoc(onlineRef, {
-              isOnline: true,
-              isTyping: true,
-            });
-            if (typingTimeout.current) clearTimeout(typingTimeout.current);
-            typingTimeout.current = setTimeout(() => {
-              setDoc(onlineRef, {
-                isOnline: true,
-                isTyping: false,
-              });
-            }, 1500);
-          }}
+          onChange={(e) => handleTyping(e.target.value)}
           sx={{
             bgcolor: "#f5f5f5",
             borderRadius: 2,
             px: 2,
             py: 1,
             width: "100%",
-            padding: "10px",
             border: "none",
             outline: "none",
           }}
         />
-
         <Button
           variant="contained"
           onClick={handleSendMessage}

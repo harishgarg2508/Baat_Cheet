@@ -13,13 +13,13 @@ import {
 } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID 
+ apiKey: "AIzaSyCrHTJdgPBf6KgIoDUbqVx3-1qw5WMFbAU",
+  authDomain: "auth-23d83.firebaseapp.com",
+  projectId: "auth-23d83",
+  storageBucket: "auth-23d83.firebasestorage.app",
+  messagingSenderId: "829896287020",
+  appId: "1:829896287020:web:5b181711cbef0dbad38289",
+  measurementId: "G-TYBZGLFH2G"
 };
 
 
@@ -84,3 +84,5 @@ export const listenForMessages = (chatId: string,setMessages: (messages: Message
 
   return unsubscribe;
 };
+
+

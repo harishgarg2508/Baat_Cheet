@@ -19,9 +19,7 @@ const UserList: React.FC<UserListProps> = ({ users }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const dispatch = useAppDispatch();
 
-  // For pagination (if needed in the future)
-  const [visibleUsers, setVisibleUsers] = useState(20);
-
+  
   const filteredUsers = users.filter((user) => {
     const term = searchTerm.toLowerCase();
     return (
@@ -32,7 +30,7 @@ const UserList: React.FC<UserListProps> = ({ users }) => {
 
   const loadMoreUsers = () => {
     setTimeout(() => {
-      setVisibleUsers((prev) => prev + 20);
+    
     }, 500);
   };
 
@@ -58,9 +56,9 @@ const UserList: React.FC<UserListProps> = ({ users }) => {
 
       {/* Infinite Scroll List */}
       <InfiniteScroll
-        dataLength={Math.min(filteredUsers.length, visibleUsers)}
+        dataLength={5}
         next={loadMoreUsers}
-        hasMore={visibleUsers < filteredUsers.length}
+        hasMore={true}
         loader={<Typography align="center">Loading...</Typography>}
         height={550}
         endMessage={
@@ -77,7 +75,7 @@ const UserList: React.FC<UserListProps> = ({ users }) => {
           }}
         >
           {filteredUsers.length > 0 ? (
-            filteredUsers.slice(0, visibleUsers).map((user) => (
+            filteredUsers.map((user) => (
               <ListItemButton
                 key={user.id}
                 onClick={() => dispatch(setSelectedUserId(user.id))}

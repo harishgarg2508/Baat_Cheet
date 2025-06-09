@@ -67,6 +67,8 @@ export const sendMessage = async (
     text: messageText,
     senderId: user1,
     timestamp: serverTimestamp(),
+    uid:messageRef.id
+    
   });
 };
 

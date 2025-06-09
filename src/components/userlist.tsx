@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {   Avatar,   InputBase,   List,   ListItemAvatar,   ListItemButton,   ListItemText,   Stack,   Typography, } from "@mui/material";
-import InfiniteScroll from "react-infinite-scroll-component";
+// import InfiniteScroll from "react-infinite-scroll-component";
 import { useAppDispatch } from "../redux/hooks";
 import { setSelectedUserId } from "../redux/chatSlice";
+
+
 
 interface UserData {
   id: string;
@@ -15,9 +17,20 @@ interface UserListProps {
   users: UserData[];
 }
 
+
+ 
+
 const UserList: React.FC<UserListProps> = ({ users }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const dispatch = useAppDispatch();
+
+
+
+
+  useEffect(()=>{
+    
+  },[])
+
 
   
   const filteredUsers = users.filter((user) => {
@@ -27,6 +40,9 @@ const UserList: React.FC<UserListProps> = ({ users }) => {
       user.email?.toLowerCase().includes(term)
     );
   });
+
+  
+
 
   const loadMoreUsers = () => {
     setTimeout(() => {
@@ -55,18 +71,7 @@ const UserList: React.FC<UserListProps> = ({ users }) => {
       />
 
       {/* Infinite Scroll List */}
-      <InfiniteScroll
-        dataLength={5}
-        next={loadMoreUsers}
-        hasMore={true}
-        loader={<Typography align="center">Loading...</Typography>}
-        height={550}
-        endMessage={
-          <Typography align="center" sx={{ mt: 2 }} color="text.secondary">
-            <b>Yay! You have seen it all</b>
-          </Typography>
-        }
-      >
+     
         <List
           sx={{
             width: "100%",
@@ -100,7 +105,6 @@ const UserList: React.FC<UserListProps> = ({ users }) => {
             </Typography>
           )}
         </List>
-      </InfiniteScroll>
     </Stack>
   );
 };

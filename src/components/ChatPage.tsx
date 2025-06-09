@@ -2,11 +2,13 @@ import {
   Avatar,
   Box,
   Button,
+  IconButton,
   InputBase,
   ListItem,
   ListItemAvatar,
   ListItemText,
   Paper,
+  Popover,
   Stack,
   Typography,
 } from "@mui/material";
@@ -15,7 +17,8 @@ import { db, sendMessage, listenForMessages } from "../firebase/firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { useAppSelector } from "../redux/hooks"; // Ensure this is your custom hook
-
+import EmojiPicker from 'emoji-picker-react';
+import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
 interface UserData {
   id: string;
   name?: string;
@@ -41,6 +44,7 @@ const ChatPage: React.FC = () => {
   const [chatId, setChatId] = useState<string | null>(null);
   const [isUserOnline, setIsUserOnline] = useState<IsOnline>();
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [emojiPickerAnchorEl, setEmojiPickerAnchorEl] = useState<HTMLButtonElement | null>(null);
   const typingTimeout = useRef<NodeJS.Timeout | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -48,6 +52,20 @@ const ChatPage: React.FC = () => {
   const selectedUserId = useAppSelector((state) => state.chat.selectedUserId);
   const currentUser = useAppSelector((state) => state.user.currentUser);
   const currentUserId = currentUser?.uid ?? null;
+
+
+
+
+const handleEmojiClick = (emojiObject: { emoji: string }) => {
+    setMessageText(prev => prev + emojiObject.emoji);
+  };
+
+  const handleEmojiPickerOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setEmojiPickerAnchorEl(event.currentTarget);
+  };
+  const handleEmojiPickerClose = () => {
+    setEmojiPickerAnchorEl(null);
+}
 
   // Fetch selected user's info from Firestore
   useEffect(() => {
@@ -263,20 +281,35 @@ const ChatPage: React.FC = () => {
 
       {/* Input */}
       <Stack direction="row" gap={1} p={2} borderTop={1} borderColor="divider">
+        <IconButton onClick={handleEmojiPickerOpen} sx={{ p: '10px' }} aria-label="emoji">
+          <EmojiEmotionsIcon />
+        </IconButton>
+        <Popover
+          open={Boolean(emojiPickerAnchorEl)}
+          anchorEl={emojiPickerAnchorEl}
+          onClose={handleEmojiPickerClose}
+          anchorOrigin={{
+            vertical: 'top',
+            horizontal: 'center',
+          }}
+          transformOrigin={{
+            vertical: 'bottom',
+            horizontal: 'center',
+          }}
+        >
+          <EmojiPicker
+            onEmojiClick={(emojiObject) => {
+              handleEmojiClick(emojiObject);
+              handleEmojiPickerClose(); // Optionally close picker after selection
+            }}
+          />
+        </Popover>
         <InputBase
           fullWidth
           placeholder="Type a message..."
           value={messageText}
           onChange={(e) => handleTyping(e.target.value)}
-          sx={{
-            bgcolor: "#f5f5f5",
-            borderRadius: 2,
-            px: 2,
-            py: 1,
-            width: "100%",
-            border: "none",
-            outline: "none",
-          }}
+          sx={{ bgcolor: "#f5f5f5", borderRadius: 2, px: 2, py: 1, flexGrow: 1 }}
         />
         <Button
           variant="contained"

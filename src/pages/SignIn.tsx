@@ -48,7 +48,13 @@ const SignIn = () => {
         `Welcome, ${user.displayName || "User"}! Signed in with Google.`
       );
       console.log("User signed in: ", user);
-      navigate("/home");
+
+      setTimeout(() => {
+         navigate("/home");
+
+      }, 2000);
+
+
     } catch (error: any) {
       console.error("Error during sign-in: ", error);
       toast.error(error.message || "Error during Google sign-in");

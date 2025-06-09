@@ -1,20 +1,10 @@
-// ChatPage.tsx
-import {
-  Avatar,
-  Box,
-  Button,
-  InputBase,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Avatar, Box, Button, InputBase, ListItem, ListItemAvatar, ListItemText, Paper, Stack, Typography, } from "@mui/material";
 import { useState, useRef, useEffect } from "react";
 import { auth, db } from "../firebase/firebase";
 import { listenForMessages, sendMessage } from "../firebase/firebase";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
+
 
 interface UserData {
   id: string;
@@ -48,11 +38,13 @@ const ChatPage: React.FC<ChatPageProps> = ({ selectedUser }) => {
   const typingTimeout = useRef<NodeJS.Timeout | null>(null);  //this for typng status
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
 
   // Set current user and chat ID
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user &&selectedUser) {
+      if (user && selectedUser) {
         const uid = user.uid;
         setCurrentUserId(uid);
         const selectedUid = selectedUser.id;
@@ -101,12 +93,37 @@ const ChatPage: React.FC<ChatPageProps> = ({ selectedUser }) => {
     return unsubscribe;
   }, [chatId]);
 
+
+
+
   // Scroll to bottom when messages change
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  //handle logout
+
+
+  const handleLogout = async () => {
+    try {
+      if (currentUserId) {
+        const onlineStatusRef = doc(db, "isOnline", currentUserId);
+        await setDoc(onlineStatusRef, {
+          isOnline: false,
+          isTyping: false,
+        }, { merge: true });
+      }
+      navigate('/login');
+    } catch (error) {
+      console.error("Error during logout:", error);
+
+      navigate('/login');
+    }
+  };
+
+
   //handling send message here
+
 
   const handleSendMessage = async () => {
     if (!messageText.trim() || !chatId || !currentUserId || !selectedUser)
@@ -142,31 +159,34 @@ const ChatPage: React.FC<ChatPageProps> = ({ selectedUser }) => {
     <Stack direction="column" height="100%">
 
       {/* Chat top user image and name*/}
-      <Stack sx={{ borderBottom: 1, borderColor: "divider", p: 1 }}>
-        <ListItem disableGutters>
+      <Stack direction={"row"} gap={1} sx={{ borderBottom: 1, borderColor: "divider", p: 1, }}>
+        <ListItem disableGutters  >
           <ListItemAvatar>
             <Avatar src={selectedUser.photoURL || undefined}>
               {selectedUser.name?.charAt(0)}
             </Avatar>
+            <Button variant="contained" color="warning" onClick={handleLogout}>
+              Logout
+            </Button>
           </ListItemAvatar>
           <ListItemText
             primary={selectedUser.name || selectedUser.email}
-            secondary= {isOnline ? (
-            <Typography variant="caption" color="green">
-              {isOnline?.isTyping ? "Typing..." : "Online"}
-            </Typography>
-          ) : (
-            <Typography variant="caption" color="gray">
-              Offline
-            </Typography>
-          )}
+            secondary={isOnline?.isOnline ? (
+              <Typography variant="caption" color="green">
+                {isOnline?.isTyping ? "Typing..." : "Online"}
+              </Typography>
+            ) : (
+              <Typography variant="caption" color="gray">
+                Offline
+              </Typography>
+            )}
           />
         </ListItem>
       </Stack>
 
       {/* Messages of the chat start here*/}
 
-      <Stack spacing={1.5}sx={{ flexGrow: 1, overflowY: "auto", px: 2, py: 1 }}>
+      <Stack spacing={1.5} sx={{ flexGrow: 1, overflowY: "auto", px: 2, py: 1 }}>
         {messages.map((msg) => {
           const isSender = msg.senderId === currentUserId;
           return (
